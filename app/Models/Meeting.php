@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Enums\MeetingEnum;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Meeting extends Model
 {
@@ -16,6 +17,10 @@ class Meeting extends Model
         'status_id',
         'admin_abogado_id',
         'abogado_id',
+    ];
+
+    protected $casts = [
+        'status_id' => MeetingEnum::class
     ];
 
     public function meetingChanges()

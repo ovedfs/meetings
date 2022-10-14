@@ -25,4 +25,14 @@ class Part extends Model
     {
         return $this->belongsTo(Meeting::class);
     }
+
+    public function arrendador()
+    {
+        return $this->belongsTo(User::class, 'arrendador_id');
+    }
+
+    public function arrendatario()
+    {
+        return $this->belongsTo(User::class, 'arrendatario_id');
+    }
 }
