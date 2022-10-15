@@ -9,6 +9,7 @@ use App\Models\Meeting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\StoreMeetingRequest;
 
 class MeetingController extends Controller
 {
@@ -42,20 +43,8 @@ class MeetingController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(StoreMeetingRequest $request)
     {
-        $request->validate([
-            'place' => 'required',
-            // 'date' => 'required| after:' . date('Y-m-d'),
-            'date' => 'required|after:yesterday',
-            'time' => 'required|date_format:H:i',
-            'abogado_id' => 'required|integer',
-            'arrendador_id' => 'required|integer',
-            'arrendatario_id' => 'required|integer',
-            'solidario_id' => 'sometimes|integer',
-            'fiador_id' => 'sometimes|integer',
-        ]);
-
         $parts = [
             'abogado' => $request->abogado_id,
             'arrendador' => $request->arrendador_id,
