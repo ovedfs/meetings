@@ -19,9 +19,9 @@ class Meeting extends Model
         'abogado_id',
     ];
 
-    protected $casts = [
-        'status_id' => MeetingEnum::class
-    ];
+    // protected $casts = [
+    //     'status_id' => MeetingEnum::class
+    // ];
 
     public function meetingChanges()
     {

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use Exception;
 use App\Models\User;
 use App\Models\Meeting;
-use App\Enums\MeetingEnum;
+//use App\Enums\MeetingEnum;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
@@ -55,28 +56,38 @@ class MeetingController extends Controller
             'fiador_id' => 'sometimes|integer',
         ]);
 
-        //DB::transaction(function () use($request) {
-            $parts = [
-                'abogado' => $request->abogado_id,
-                'arrendador' => $request->arrendador_id,
-                'arrendatario' => $request->arrendatario_id,
-                'solidario' => $request->has('solidario_id') ?? null,
-                'fiador' => $request->has('fiador_id') ?? null,
-            ];
+        $parts = [
+            'abogado' => $request->abogado_id,
+            'arrendador' => $request->arrendador_id,
+            'arrendatario' => $request->arrendatario_id,
+            'solidario' => $request->has('solidario_id') ?? null,
+            'fiador' => $request->has('fiador_id') ?? null,
+        ];
 
-            foreach ($parts as $key => $value) {
-                if($value && ! User::find($value)->hasRole($key)) {
-                    return response()->json([
-                        'message' => "El usuario propuesto como $key no tiene el rol necesario",
-                    ]);
-                }
+        foreach ($parts as $key => $value) {
+            $user = User::find($value);
+
+            if($value && !isset($user)) {
+                return response()->json([
+                    'message' => "El usuario propuesto como $key no esta registrado en el sistema",
+                ]);
             }
 
+            if($value && ! $user->hasRole($key)) {
+                return response()->json([
+                    'message' => "El usuario propuesto como $key no tiene el rol necesario",
+                ]);
+            }
+        }
+
+        DB::beginTransaction();
+
+        try {
             $meeting = Meeting::create([
                 "place" => $request->place,
                 "date" => $request->date,
                 "time" => $request->time,
-                "status_id" => MeetingEnum::Programada,
+                "status_id" => 1, //MeetingEnum::Programada,
                 "abogado_id" => $request->abogado_id,
                 "admin_abogado_id" => auth()->user()->id
             ]);
@@ -86,11 +97,21 @@ class MeetingController extends Controller
             if($request->has('solidario_id')) $meeting->parts(['part_id' => $request->solidario_id, 'role' => 'solidario']);
             if($request->has('fiador_id')) $meeting->parts(['part_id' => $request->fiador_id, 'role' => 'fiador']);
 
+            DB::commit();
+
             return response()->json([
                 'message' => 'Reunión programada correctamente',
-                'meeting' => $meeting->load('parts'),
+                'meeting' => $meeting->load('parts', 'status', 'abogado'),
             ]);
-        //});
+
+        } catch (Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Ocurrió un error y no se pudo registrar la reunión',
+                'error' => $e
+            ]);
+        }
     }
 
     /**
