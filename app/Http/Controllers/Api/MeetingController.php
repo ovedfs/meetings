@@ -9,6 +9,7 @@ use App\Models\Meeting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Notifications\MeetingNotification;
 use App\Http\Requests\Api\StoreMeetingRequest;
 
 class MeetingController extends Controller
@@ -45,13 +46,7 @@ class MeetingController extends Controller
      */
     public function store(StoreMeetingRequest $request)
     {
-        $parts = [
-            'abogado' => $request->abogado_id,
-            'arrendador' => $request->arrendador_id,
-            'arrendatario' => $request->arrendatario_id,
-            'solidario' => $request->has('solidario_id') ?? null,
-            'fiador' => $request->has('fiador_id') ?? null,
-        ];
+        $parts = $this->getParts($request);
 
         foreach ($parts as $key => $value) {
             $user = User::find($value);
@@ -64,7 +59,7 @@ class MeetingController extends Controller
 
             if($value && ! $user->hasRole($key)) {
                 return response()->json([
-                    'message' => "El usuario propuesto como $key no tiene el rol necesario",
+                    'message' => "El usuario $value propuesto como $key no tiene el rol necesario",
                 ]);
             }
         }
@@ -83,10 +78,13 @@ class MeetingController extends Controller
             
             $meeting->parts()->create(['part_id' => $request->arrendador_id, 'role' => 'arrendador']);
             $meeting->parts()->create(['part_id' => $request->arrendatario_id, 'role' => 'arrendatario']);
-            if($request->has('solidario_id')) $meeting->parts(['part_id' => $request->solidario_id, 'role' => 'solidario']);
-            if($request->has('fiador_id')) $meeting->parts(['part_id' => $request->fiador_id, 'role' => 'fiador']);
+            if($request->has('solidario_id')) $meeting->parts()->create(['part_id' => $request->solidario_id, 'role' => 'solidario']);
+            if($request->has('fiador_id')) $meeting->parts()->create(['part_id' => $request->fiador_id, 'role' => 'fiador']);
 
             DB::commit();
+
+            // Notificar a las partes y abogado ...
+            $this->notifyParts($parts, $meeting);
 
             return response()->json([
                 'message' => 'Reunión programada correctamente',
@@ -126,7 +124,36 @@ class MeetingController extends Controller
      */
     public function update(Request $request, Meeting $meeting)
     {
-        //
+        $request->validate([
+            'reason' => 'required'
+        ]);
+
+        $meetingOldData = $meeting->toArray();
+        
+        $meeting->update(array_merge($request->all(), ['status_id' => 2]));
+        
+        foreach($meeting->getChanges() as $key => $value) {
+            $meeting->meetingChanges()->create([
+                'reason' => $request->reason,
+                'field' => $key,
+                'old_value' => $meetingOldData[$key],
+                'new_value' => $value,
+            ]);
+        }
+
+        // Notificar a las partes y abogado ...
+        $this->notifyParts([
+            'abogado' => $meeting->abogado->id ?? null,
+            'arrendador' => $meeting->parts[0]->arrendador->id ?? null,
+            'arrendatario' => $meeting->parts[1]->arrendatario->id ?? null,
+            'solidario' => $meeting->solidario->parts[2]->id ?? null,
+            'fiador' => $meeting->parts[3]->fiador->id ?? null,
+        ], $meeting);
+
+        return response()->json([
+            'message' => 'La reunión fue actualizada de forma correcta',
+            'meetings' => $meeting->load('parts', 'meetingChanges', 'status', 'abogado'),
+        ]);
     }
 
     /**
@@ -138,5 +165,29 @@ class MeetingController extends Controller
     public function destroy(Meeting $meeting)
     {
         //
+    }
+
+    private function getParts($request)
+    {
+        $parts = [
+            'abogado' => $request->abogado_id,
+            'arrendador' => $request->arrendador_id,
+            'arrendatario' => $request->arrendatario_id,
+            'solidario' => $request->solidario_id ?? null,
+            'fiador' => $request->fiador_id ?? null,
+        ];
+
+        return $parts;
+    }
+
+    private function notifyParts($parts, $meeting)
+    {
+        foreach ($parts as $key => $value) {
+            $user = User::find($value);
+
+            if(isset($user)) {
+                $user->notify(new MeetingNotification($meeting));
+            }
+        }
     }
 }

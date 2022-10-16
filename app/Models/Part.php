@@ -28,11 +28,21 @@ class Part extends Model
 
     public function arrendador()
     {
-        return $this->belongsTo(User::class, 'arrendador_id');
+        return $this->belongsTo(User::class, 'part_id');
     }
 
     public function arrendatario()
     {
-        return $this->belongsTo(User::class, 'arrendatario_id');
+        return $this->belongsTo(User::class, 'part_id');
+    }
+
+    public function solidario()
+    {
+        return $this->belongsTo(User::class, 'part_id');
+    }
+
+    public function fiador()
+    {
+        return $this->belongsTo(User::class, 'part_id');
     }
 }

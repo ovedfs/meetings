@@ -19,6 +19,10 @@ class Meeting extends Model
         'abogado_id',
     ];
 
+    protected $casts = [
+        'date' => 'datetime',
+    ];
+
     // protected $casts = [
     //     'status_id' => MeetingEnum::class
     // ];

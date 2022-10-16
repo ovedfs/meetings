@@ -45,6 +45,6 @@ class User extends Authenticatable
 
     public function meetings()
     {
-        return $this->hasMany(Meeting::class);
+        return $this->hasMany(Meeting::class, 'admin_abogado_id');
     }
 }
